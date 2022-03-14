@@ -196,19 +196,10 @@ static int cs2pf[JPEG_NUMCS] = {
   snprintf(errStr, JMSG_LENGTH_MAX, "%s", m); \
   retval = -1;  goto bailout; \
 }
-#ifdef _MSC_VER
-#define THROW_UNIX(m) { \
-  char strerrorBuf[80] = { 0 }; \
-  strerror_s(strerrorBuf, 80, errno); \
-  snprintf(errStr, JMSG_LENGTH_MAX, "%s\n%s", m, strerrorBuf); \
-  retval = -1;  goto bailout; \
-}
-#else
 #define THROW_UNIX(m) { \
   snprintf(errStr, JMSG_LENGTH_MAX, "%s\n%s", m, strerror(errno)); \
   retval = -1;  goto bailout; \
 }
-#endif
 #define THROW(m) { \
   snprintf(this->errStr, JMSG_LENGTH_MAX, "%s", m); \
   this->isInstanceError = TRUE;  THROWG(m) \
@@ -280,7 +271,7 @@ static void setCompDefaults(struct jpeg_compress_struct *cinfo,
                             int flags)
 {
 #ifndef NO_GETENV
-  char env[7] = { 0 };
+  char *env = NULL;
 #endif
 
   cinfo->in_color_space = pf2cs[pixelFormat];
@@ -288,21 +279,18 @@ static void setCompDefaults(struct jpeg_compress_struct *cinfo,
   jpeg_set_defaults(cinfo);
 
 #ifndef NO_GETENV
-  if (!GETENV_S(env, 7, "TJ_OPTIMIZE") && !strcmp(env, "1"))
+  if ((env = getenv("TJ_OPTIMIZE")) != NULL && strlen(env) > 0 &&
+      !strcmp(env, "1"))
     cinfo->optimize_coding = TRUE;
-  if (!GETENV_S(env, 7, "TJ_ARITHMETIC") && !strcmp(env, "1"))
+  if ((env = getenv("TJ_ARITHMETIC")) != NULL && strlen(env) > 0 &&
+      !strcmp(env, "1"))
     cinfo->arith_code = TRUE;
-  if (!GETENV_S(env, 7, "TJ_RESTART") && strlen(env) > 0) {
+  if ((env = getenv("TJ_RESTART")) != NULL && strlen(env) > 0) {
     int temp = -1;
     char tempc = 0;
 
-#ifdef _MSC_VER
-    if (sscanf_s(env, "%d%c", &temp, &tempc, 1) >= 1 && temp >= 0 &&
-        temp <= 65535) {
-#else
     if (sscanf(env, "%d%c", &temp, &tempc) >= 1 && temp >= 0 &&
         temp <= 65535) {
-#endif
       if (toupper(tempc) == 'B') {
         cinfo->restart_interval = temp;
         cinfo->restart_in_rows = 0;
@@ -329,7 +317,8 @@ static void setCompDefaults(struct jpeg_compress_struct *cinfo,
   if (flags & TJFLAG_PROGRESSIVE)
     jpeg_simple_progression(cinfo);
 #ifndef NO_GETENV
-  else if (!GETENV_S(env, 7, "TJ_PROGRESSIVE") && !strcmp(env, "1"))
+  else if ((env = getenv("TJ_PROGRESSIVE")) != NULL && strlen(env) > 0 &&
+           !strcmp(env, "1"))
     jpeg_simple_progression(cinfo);
 #endif
 
@@ -709,9 +698,9 @@ DLLEXPORT int tjCompress2(tjhandle handle, const unsigned char *srcBuf,
   cinfo->image_height = height;
 
 #ifndef NO_PUTENV
-  if (flags & TJFLAG_FORCEMMX) PUTENV_S("JSIMD_FORCEMMX", "1");
-  else if (flags & TJFLAG_FORCESSE) PUTENV_S("JSIMD_FORCESSE", "1");
-  else if (flags & TJFLAG_FORCESSE2) PUTENV_S("JSIMD_FORCESSE2", "1");
+  if (flags & TJFLAG_FORCEMMX) putenv("JSIMD_FORCEMMX=1");
+  else if (flags & TJFLAG_FORCESSE) putenv("JSIMD_FORCESSE=1");
+  else if (flags & TJFLAG_FORCESSE2) putenv("JSIMD_FORCESSE2=1");
 #endif
 
   if (flags & TJFLAG_NOREALLOC) {
@@ -811,9 +800,9 @@ DLLEXPORT int tjEncodeYUVPlanes(tjhandle handle, const unsigned char *srcBuf,
   cinfo->image_height = height;
 
 #ifndef NO_PUTENV
-  if (flags & TJFLAG_FORCEMMX) PUTENV_S("JSIMD_FORCEMMX", "1");
-  else if (flags & TJFLAG_FORCESSE) PUTENV_S("JSIMD_FORCESSE", "1");
-  else if (flags & TJFLAG_FORCESSE2) PUTENV_S("JSIMD_FORCESSE2", "1");
+  if (flags & TJFLAG_FORCEMMX) putenv("JSIMD_FORCEMMX=1");
+  else if (flags & TJFLAG_FORCESSE) putenv("JSIMD_FORCESSE=1");
+  else if (flags & TJFLAG_FORCESSE2) putenv("JSIMD_FORCESSE2=1");
 #endif
 
   setCompDefaults(cinfo, pixelFormat, subsamp, -1, flags);
@@ -1022,9 +1011,9 @@ DLLEXPORT int tjCompressFromYUVPlanes(tjhandle handle,
   cinfo->image_height = height;
 
 #ifndef NO_PUTENV
-  if (flags & TJFLAG_FORCEMMX) PUTENV_S("JSIMD_FORCEMMX", "1");
-  else if (flags & TJFLAG_FORCESSE) PUTENV_S("JSIMD_FORCESSE", "1");
-  else if (flags & TJFLAG_FORCESSE2) PUTENV_S("JSIMD_FORCESSE2", "1");
+  if (flags & TJFLAG_FORCEMMX) putenv("JSIMD_FORCEMMX=1");
+  else if (flags & TJFLAG_FORCESSE) putenv("JSIMD_FORCESSE=1");
+  else if (flags & TJFLAG_FORCESSE2) putenv("JSIMD_FORCESSE2=1");
 #endif
 
   if (flags & TJFLAG_NOREALLOC) {
@@ -1308,9 +1297,9 @@ DLLEXPORT int tjDecompress2(tjhandle handle, const unsigned char *jpegBuf,
     THROW("tjDecompress2(): Invalid argument");
 
 #ifndef NO_PUTENV
-  if (flags & TJFLAG_FORCEMMX) PUTENV_S("JSIMD_FORCEMMX", "1");
-  else if (flags & TJFLAG_FORCESSE) PUTENV_S("JSIMD_FORCESSE", "1");
-  else if (flags & TJFLAG_FORCESSE2) PUTENV_S("JSIMD_FORCESSE2", "1");
+  if (flags & TJFLAG_FORCEMMX) putenv("JSIMD_FORCEMMX=1");
+  else if (flags & TJFLAG_FORCESSE) putenv("JSIMD_FORCESSE=1");
+  else if (flags & TJFLAG_FORCESSE2) putenv("JSIMD_FORCESSE2=1");
 #endif
 
   if (flags & TJFLAG_LIMITSCANS) {
@@ -1484,9 +1473,9 @@ DLLEXPORT int tjDecodeYUVPlanes(tjhandle handle,
   dinfo->image_height = height;
 
 #ifndef NO_PUTENV
-  if (flags & TJFLAG_FORCEMMX) PUTENV_S("JSIMD_FORCEMMX", "1");
-  else if (flags & TJFLAG_FORCESSE) PUTENV_S("JSIMD_FORCESSE", "1");
-  else if (flags & TJFLAG_FORCESSE2) PUTENV_S("JSIMD_FORCESSE2", "1");
+  if (flags & TJFLAG_FORCEMMX) putenv("JSIMD_FORCEMMX=1");
+  else if (flags & TJFLAG_FORCESSE) putenv("JSIMD_FORCESSE=1");
+  else if (flags & TJFLAG_FORCESSE2) putenv("JSIMD_FORCESSE2=1");
 #endif
 
   dinfo->progressive_mode = dinfo->inputctl->has_multiple_scans = FALSE;
@@ -1656,9 +1645,9 @@ DLLEXPORT int tjDecompressToYUVPlanes(tjhandle handle,
     THROW("tjDecompressToYUVPlanes(): Invalid argument");
 
 #ifndef NO_PUTENV
-  if (flags & TJFLAG_FORCEMMX) PUTENV_S("JSIMD_FORCEMMX", "1");
-  else if (flags & TJFLAG_FORCESSE) PUTENV_S("JSIMD_FORCESSE", "1");
-  else if (flags & TJFLAG_FORCESSE2) PUTENV_S("JSIMD_FORCESSE2", "1");
+  if (flags & TJFLAG_FORCEMMX) putenv("JSIMD_FORCEMMX=1");
+  else if (flags & TJFLAG_FORCESSE) putenv("JSIMD_FORCESSE=1");
+  else if (flags & TJFLAG_FORCESSE2) putenv("JSIMD_FORCESSE2=1");
 #endif
 
   if (flags & TJFLAG_LIMITSCANS) {
@@ -1920,9 +1909,9 @@ DLLEXPORT int tjTransform(tjhandle handle, const unsigned char *jpegBuf,
     THROW("tjTransform(): Invalid argument");
 
 #ifndef NO_PUTENV
-  if (flags & TJFLAG_FORCEMMX) PUTENV_S("JSIMD_FORCEMMX", "1");
-  else if (flags & TJFLAG_FORCESSE) PUTENV_S("JSIMD_FORCESSE", "1");
-  else if (flags & TJFLAG_FORCESSE2) PUTENV_S("JSIMD_FORCESSE2", "1");
+  if (flags & TJFLAG_FORCEMMX) putenv("JSIMD_FORCEMMX=1");
+  else if (flags & TJFLAG_FORCESSE) putenv("JSIMD_FORCESSE=1");
+  else if (flags & TJFLAG_FORCESSE2) putenv("JSIMD_FORCESSE2=1");
 #endif
 
   if (flags & TJFLAG_LIMITSCANS) {
@@ -2089,11 +2078,7 @@ DLLEXPORT unsigned char *tjLoadImage(const char *filename, int *width,
   this = (tjinstance *)handle;
   cinfo = &this->cinfo;
 
-#ifdef _MSC_VER
-  if (fopen_s(&file, filename, "rb") || file == NULL)
-#else
   if ((file = fopen(filename, "rb")) == NULL)
-#endif
     THROW_UNIX("tjLoadImage(): Cannot open input file");
 
   if ((tempc = getc(file)) < 0 || ungetc(tempc, file) == EOF)
@@ -2189,11 +2174,7 @@ DLLEXPORT int tjSaveImage(const char *filename, unsigned char *buffer,
   this = (tjinstance *)handle;
   dinfo = &this->dinfo;
 
-#ifdef _MSC_VER
-  if (fopen_s(&file, filename, "wb") || file == NULL)
-#else
   if ((file = fopen(filename, "wb")) == NULL)
-#endif
     THROW_UNIX("tjSaveImage(): Cannot open output file");
 
   if (setjmp(this->jerr.setjmp_buffer)) {
